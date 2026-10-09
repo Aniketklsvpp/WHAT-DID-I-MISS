@@ -23,39 +23,31 @@ export function LocalLLMPanel({ data, userName }: { data: CatchUpData, userName:
   }, []);
 
   const handleGenerate = async () => {
-    if (!webGPUSupported) {
-      setSummary(buildRuleBasedSummary(data, userName));
-      setErrorFallback(true);
-      setErrorMsg("WebGPU not supported on this device.");
-      return;
-    }
-
+    console.log("[LocalLLMPanel] Generate requested.");
     setIsLoading(true);
     setSummary('');
     setErrorFallback(false);
     setErrorMsg('');
 
-    let isStuck = true;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
     try {
-      if (!engineRef.current) {
-        timeoutId = setTimeout(() => {
-          if (isStuck) {
-            setErrorMsg("Model download or load timed out after 30 seconds. Check your network, or use the offline summary.");
-            setSummary(buildRuleBasedSummary(data, userName));
-            setErrorFallback(true);
-            setIsLoading(false);
-          }
-        }, 30000);
+      console.log("[LocalLLMPanel] Checking WebGPU support...");
+      const supported = await hasWebGPU();
+      setWebGPUSupported(supported);
 
+      if (!supported) {
+        console.warn("[LocalLLMPanel] WebGPU not supported on this device.");
+        setErrorMsg("WebGPU unavailable on this device. Model unavailable, showing offline result.");
+        setSummary(buildRuleBasedSummary(data, userName));
+        setErrorFallback(true);
+        return;
+      }
+
+      if (!engineRef.current) {
+        console.log(`[LocalLLMPanel] Initializing model engine (${MODEL_ID})...`);
         engineRef.current = await initLLMEngine((report) => {
-          if (report.progress > 0) isStuck = false;
           setProgressText(report.text);
           setProgressValue(report.progress * 100);
         });
-        
-        if (timeoutId) clearTimeout(timeoutId);
       }
 
       if (!engineRef.current) {
@@ -64,18 +56,21 @@ export function LocalLLMPanel({ data, userName }: { data: CatchUpData, userName:
 
       setIsLoading(false);
       setIsGenerating(true);
+      console.log("[LocalLLMPanel] Generating summary via WebLLM...");
 
       await generateLLMSummary(engineRef.current, data, userName, (text) => {
         setSummary(text);
       });
+      console.log("[LocalLLMPanel] Summary generation complete.");
 
     } catch (err: any) {
-      console.error(err);
-      if (timeoutId) clearTimeout(timeoutId);
-      setErrorMsg(err.message || String(err));
+      console.error("[LocalLLMPanel Error]:", err);
+      const errText = err?.message || String(err);
+      setErrorMsg(`Model unavailable (${errText}). Showing offline result.`);
       setSummary(buildRuleBasedSummary(data, userName));
       setErrorFallback(true);
     } finally {
+      console.log("[LocalLLMPanel] Clearing loading/generating state.");
       setIsLoading(false);
       setIsGenerating(false);
     }

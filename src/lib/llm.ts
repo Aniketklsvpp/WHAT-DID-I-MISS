@@ -3,18 +3,50 @@ import { type CatchUpData } from './score';
 
 export const MODEL_ID = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
 
+export function withTimeout<T>(
+  promise: Promise<T>, 
+  timeoutMs = 30000, 
+  timeoutErrorMsg = "Operation timed out after 30 seconds."
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(timeoutErrorMsg));
+    }, timeoutMs);
+
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 export async function hasWebGPU(): Promise<boolean> {
-  console.log("Checking WebGPU support...");
-  if (!navigator.gpu) {
-    console.warn("navigator.gpu is not available.");
+  console.log("[LLM] Checking WebGPU support...");
+  if (typeof navigator === 'undefined' || !navigator.gpu) {
+    console.warn("[LLM] navigator.gpu is NOT available on this browser/device.");
     return false;
   }
   try {
-    const adapter = await navigator.gpu.requestAdapter();
-    console.log("WebGPU adapter:", adapter);
-    return !!adapter;
+    console.log("[LLM] Requesting WebGPU adapter...");
+    const adapterPromise = navigator.gpu.requestAdapter();
+    const adapter = await withTimeout(
+      adapterPromise, 
+      10000, 
+      "WebGPU adapter request timed out after 10s."
+    );
+    console.log("[LLM] WebGPU adapter result:", adapter);
+    if (!adapter) {
+      console.warn("[LLM] WebGPU adapter is null.");
+      return false;
+    }
+    return true;
   } catch (e) {
-    console.error("Failed to request WebGPU adapter:", e);
+    console.error("[LLM] Failed to request WebGPU adapter:", e);
     return false;
   }
 }
@@ -50,18 +82,24 @@ export function buildRuleBasedSummary(data: CatchUpData, userName: string): stri
 export async function initLLMEngine(
   initProgressCallback: (progress: InitProgressReport) => void
 ): Promise<MLCEngine | null> {
-  console.log(`Initializing MLCEngine with model ID: ${MODEL_ID}`);
+  console.log(`[LLM] Initializing MLCEngine with model ID: ${MODEL_ID}`);
   try {
-    const engine = await CreateMLCEngine(MODEL_ID, { 
+    const enginePromise = CreateMLCEngine(MODEL_ID, { 
       initProgressCallback: (progress) => {
-        console.log("LLM Load Progress:", progress);
+        console.log(`[LLM Load Progress] ${Math.round(progress.progress * 100)}%: ${progress.text}`);
         initProgressCallback(progress);
       }
     });
-    console.log("MLCEngine initialization complete.");
+
+    const engine = await withTimeout(
+      enginePromise,
+      30000,
+      "Model loading timed out after 30 seconds."
+    );
+    console.log("[LLM] MLCEngine initialization complete.");
     return engine;
   } catch (err) {
-    console.error("Failed to initialize MLCEngine:", err);
+    console.error("[LLM] Failed to initialize MLCEngine:", err);
     throw err;
   }
 }
@@ -71,7 +109,7 @@ export async function generateLLMSummary(
   data: CatchUpData,
   userName: string,
   onUpdate: (text: string) => void
-) {
+): Promise<string> {
   const sorted = [...data.allScored]
     .filter(m => !m.hasHighRisk) // exclude high-risk OTP/Card items
     .sort((a, b) => b.score - a.score);
@@ -91,21 +129,40 @@ Please provide:
 
 Format the output clearly.`;
 
+  console.log(`[LLM Summary] Starting completion query. Prompt length: ${prompt.length}`);
+
   try {
-    const chunks = await engine.chat.completions.create({
+    const completionPromise = engine.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
       stream: true,
       temperature: 0.1,
     });
 
+    const chunks = await withTimeout(
+      completionPromise,
+      30000,
+      "LLM query initiation timed out after 30 seconds."
+    );
+
     let fullText = '';
-    for await (const chunk of chunks) {
-      fullText += chunk.choices[0]?.delta?.content || '';
-      onUpdate(fullText);
-    }
-    return fullText;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("LLM generation stream timed out after 30 seconds.")), 30000);
+    });
+
+    const readStream = (async () => {
+      for await (const chunk of chunks) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        fullText += content;
+        onUpdate(fullText);
+      }
+      return fullText;
+    })();
+
+    const result = await Promise.race([readStream, timeoutPromise]);
+    console.log("[LLM Summary] Generation finished. Length:", result.length);
+    return result;
   } catch (err) {
-    console.error("LLM Generation failed:", err);
+    console.error("[LLM Summary] Error during summary generation:", err);
     throw err;
   }
 }
