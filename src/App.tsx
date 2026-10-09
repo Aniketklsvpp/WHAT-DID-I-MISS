@@ -145,7 +145,14 @@ function App() {
           </a>
           <div className="flex items-center gap-space-md">
             {parsedMessages && (
-              <nav className="text-primary font-bold underline">
+              <nav className="flex items-center gap-4 font-bold">
+                <button 
+                  onClick={handleClearData} 
+                  aria-label="Upload a new chat file"
+                  className="font-label-sm text-label-sm uppercase tracking-wider text-primary hover:opacity-80 transition-opacity cursor-pointer bg-surface-container-low px-3 py-1.5 rounded-full border border-primary shadow-[1px_1px_0px_#000000] focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                >
+                  New Chat
+                </button>
                 <button 
                   onClick={() => setShowPrivacy(true)} 
                   aria-label="Open privacy settings"
