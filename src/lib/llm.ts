@@ -51,32 +51,53 @@ export async function hasWebGPU(): Promise<boolean> {
   }
 }
 
-export function buildRuleBasedSummary(data: CatchUpData, userName: string): string {
-  let summary = `Rule-based Summary for ${userName}:\n\n`;
-  
-  if (data.deadlines.length > 0) {
-    summary += `You have ${data.deadlines.length} upcoming deadlines.\n`;
-  }
-  if (data.actionItems.length > 0) {
-    summary += `There are ${data.actionItems.length} action items requested.\n`;
-  }
-  if (data.mentions.length > 0) {
-    summary += `You were mentioned ${data.mentions.length} times.\n`;
-  }
-  if (data.decisions.length > 0) {
-    summary += `Key decisions made: ${data.decisions.length}.\n`;
-  }
+export function buildRuleBasedSummary(data: CatchUpData, _userName: string): string {
+  const totalMessages = data.allScored.length;
 
-  summary += '\nTop Priorities:\n';
-  if (data.top3.length === 0) {
-    summary += 'No critical items found.\n';
-  } else {
-    data.top3.forEach((m, i) => {
-      summary += `${i + 1}. [${m.sender}] ${m.text.slice(0, 100)}${m.text.length > 100 ? '...' : ''}\n`;
+  // Attention-worthy = anything with a positive score
+  const attentionCount = data.allScored.filter(m => m.score > 0).length;
+
+  const lines: string[] = [];
+
+  // Line 1 — overview
+  lines.push(`${totalMessages} messages analyzed. ${attentionCount} need your attention.`);
+  lines.push('');
+
+  // Top-3 must-do items (action + deadline preferred)
+  const mustDo = [
+    ...data.actionItems.filter(m => m.tags.deadline),
+    ...data.deadlines,
+    ...data.actionItems,
+    ...data.top3,
+  ]
+    .filter((m, i, arr) => arr.findIndex(x => x.text === m.text) === i) // dedupe
+    .slice(0, 3);
+
+  if (mustDo.length > 0) {
+    lines.push('📋 Must-do:');
+    mustDo.forEach((m, i) => {
+      const deadlineReason = m.reasons.find(r => r.startsWith('Deadline:'));
+      const label = deadlineReason ? ` — ${deadlineReason}` : '';
+      const snippet = m.text.length > 80 ? m.text.slice(0, 80) + '…' : m.text;
+      lines.push(`  ${i + 1}. ${snippet}${label}`);
     });
+    lines.push('');
   }
 
-  return summary;
+  // Decisions
+  if (data.decisions.length > 0) {
+    const latest = data.decisions[data.decisions.length - 1];
+    const latestSnippet = latest.text.length > 70 ? latest.text.slice(0, 70) + '…' : latest.text;
+    lines.push(`✅ Decisions made: ${data.decisions.length}. Latest — "${latestSnippet}"`);
+    lines.push('');
+  }
+
+  // Open questions
+  if (data.openQuestions.length > 0) {
+    lines.push(`❓ Open questions: ${data.openQuestions.length}`);
+  }
+
+  return lines.join('\n');
 }
 
 export async function initLLMEngine(
