@@ -49,7 +49,16 @@ export function Dropzone({ onFileLoaded }: DropzoneProps) {
 
   return (
     <div
-      className={`w-full max-w-md border-[3px] border-dashed border-primary rounded-xl p-space-xl cursor-pointer bg-surface-container-lowest transition-all duration-150 flex items-center justify-center ${
+      role="button"
+      tabIndex={0}
+      aria-label="Upload WhatsApp chat text file dropzone"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          document.getElementById('file-input')?.click();
+        }
+      }}
+      className={`w-full max-w-md border-[3px] border-dashed border-primary rounded-xl p-space-xl cursor-pointer bg-surface-container-lowest transition-all duration-150 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${
         isDragging ? 'bg-secondary-container' : 'hover:bg-surface-container-low'
       }`}
       onDragEnter={handleDrag}
@@ -62,6 +71,7 @@ export function Dropzone({ onFileLoaded }: DropzoneProps) {
         id="file-input"
         type="file"
         accept=".txt"
+        aria-label="Select WhatsApp chat export file"
         className="hidden"
         onChange={handleChange}
       />

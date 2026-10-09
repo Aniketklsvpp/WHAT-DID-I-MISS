@@ -1,14 +1,20 @@
 import { CreateMLCEngine, type InitProgressReport, MLCEngine } from '@mlc-ai/web-llm';
 import { type CatchUpData } from './score';
 
-const MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+export const MODEL_ID = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
 
 export async function hasWebGPU(): Promise<boolean> {
-  if (!navigator.gpu) return false;
+  console.log("Checking WebGPU support...");
+  if (!navigator.gpu) {
+    console.warn("navigator.gpu is not available.");
+    return false;
+  }
   try {
     const adapter = await navigator.gpu.requestAdapter();
+    console.log("WebGPU adapter:", adapter);
     return !!adapter;
   } catch (e) {
+    console.error("Failed to request WebGPU adapter:", e);
     return false;
   }
 }
@@ -44,12 +50,19 @@ export function buildRuleBasedSummary(data: CatchUpData, userName: string): stri
 export async function initLLMEngine(
   initProgressCallback: (progress: InitProgressReport) => void
 ): Promise<MLCEngine | null> {
+  console.log(`Initializing MLCEngine with model ID: ${MODEL_ID}`);
   try {
-    const engine = await CreateMLCEngine(MODEL_ID, { initProgressCallback });
+    const engine = await CreateMLCEngine(MODEL_ID, { 
+      initProgressCallback: (progress) => {
+        console.log("LLM Load Progress:", progress);
+        initProgressCallback(progress);
+      }
+    });
+    console.log("MLCEngine initialization complete.");
     return engine;
   } catch (err) {
     console.error("Failed to initialize MLCEngine:", err);
-    return null;
+    throw err;
   }
 }
 

@@ -9,7 +9,7 @@ interface HeatmapProps {
 export function Heatmap({ data, onFilter }: HeatmapProps) {
   const [activeBucket, setActiveBucket] = useState<number | null>(null);
 
-  const { buckets, isPerDay, maxCount, firstTime, duration } = useMemo(() => {
+  const { buckets, isPerDay, firstTime, duration } = useMemo(() => {
     const all = data.allScored;
     if (all.length === 0) return { buckets: [], isPerDay: false, maxCount: 0, firstTime: 0, duration: 0 };
 
@@ -60,47 +60,54 @@ export function Heatmap({ data, onFilter }: HeatmapProps) {
   };
 
   const getBucketColor = (score: number) => {
-    if (score === 0) return 'rgb(55, 65, 81)'; // #374151
-    if (score >= 70) return 'rgb(239, 68, 68)'; // red-500
-    if (score >= 40) return 'rgb(245, 158, 11)'; // amber-500
-    return 'rgb(16, 185, 129)'; // green-500
+    if (score === 0) return 'bg-surface-container'; 
+    if (score >= 70) return 'bg-error'; 
+    if (score >= 40) return 'bg-tertiary-fixed'; 
+    return 'bg-secondary-container'; 
   };
 
   return (
-    <div className="w-full bg-[#1f2937] border border-[#374151] rounded-2xl p-6 shadow-xl mb-8 animate-in fade-in slide-in-from-top-4 duration-700">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-white flex items-center">
-          Urgency Heatmap
+    <div className="w-full space-y-4 mb-12">
+      <div className="flex justify-between items-end">
+        <h3 className="font-headline-md text-headline-md uppercase tracking-tight text-primary">
+          Timeline
         </h3>
         {activeBucket !== null && (
           <button 
             onClick={() => { setActiveBucket(null); onFilter(null); }}
-            className="text-xs px-4 py-2 bg-[#374151] hover:bg-[#10b981] text-white font-bold rounded-lg transition-colors cursor-pointer"
+            aria-label="Clear timeline filter"
+            className="text-xs px-3 py-1 bg-primary text-on-primary font-bold rounded-full transition-colors cursor-pointer uppercase tracking-widest shadow-[2px_2px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
             Clear Filter
           </button>
         )}
       </div>
 
-      <div className="relative w-full h-20 flex items-end bg-[#111827] rounded-lg border border-[#374151] overflow-visible group/container">
+      <div className="relative w-full h-4 rounded-full overflow-hidden flex bg-surface-container-lowest shadow-[2px_2px_0px_#000000] border-2 border-primary group/container" role="region" aria-label="Interactive chat timeline">
         {buckets.map((b, i) => {
           const count = b.messages.length;
-          const opacity = count === 0 ? 1 : Math.max(0.2, count / maxCount);
-          const color = getBucketColor(b.maxScore);
+          const colorClass = getBucketColor(b.maxScore);
           
           return (
             <div 
               key={i}
+              role="button"
+              tabIndex={0}
+              aria-label={`Timeline segment ${i + 1} of ${buckets.length}: ${b.start.toLocaleDateString()} ${b.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, ${count} messages`}
               onClick={() => handleBucketClick(i)}
-              className={`relative h-full flex-1 transition-all duration-300 cursor-pointer group ${activeBucket === i ? 'ring-2 ring-white z-10' : 'hover:opacity-100 hover:brightness-125 hover:z-30 border-r border-[#1f2937]/50'}`}
-              style={{ backgroundColor: color, opacity: activeBucket === null || activeBucket === i ? opacity : opacity * 0.3 }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleBucketClick(i);
+                }
+              }}
+              className={`relative h-full flex-1 transition-all duration-300 cursor-pointer group focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none ${colorClass} ${activeBucket === i ? 'brightness-125' : 'hover:brightness-110 border-r border-primary/20'}`}
+              style={{ opacity: activeBucket === null || activeBucket === i ? 1 : 0.3 }}
             >
-              <div className="absolute opacity-0 group-hover:opacity-100 bottom-full left-1/2 -translate-x-1/2 mb-3 w-48 bg-black text-white text-xs p-3 rounded-lg shadow-2xl pointer-events-none z-50 border border-gray-800 transition-opacity">
-                <div className="font-bold text-[#10b981] mb-1">{b.start.toLocaleDateString()} {b.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+              <div className="absolute opacity-0 group-hover:opacity-100 bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-surface-container-lowest text-primary text-xs p-3 rounded-xl shadow-[4px_4px_0px_#000000] border-2 border-primary pointer-events-none z-50 transition-opacity">
+                <div className="font-bold mb-1 uppercase tracking-wider">{b.start.toLocaleDateString()} {b.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                 <div className="mb-1">{count} messages</div>
-                {b.maxScore > 0 && <div className="mt-1 text-amber-400 font-semibold border-t border-gray-800 pt-1">🔥 {b.topReason} (Score: {b.maxScore})</div>}
-                {/* Arrow */}
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black"></div>
+                {b.maxScore > 0 && <div className="mt-1 text-on-surface-variant font-semibold border-t-2 border-primary border-dashed pt-1">🔥 {b.topReason} (Score: {b.maxScore})</div>}
               </div>
             </div>
           );
@@ -115,17 +122,17 @@ export function Heatmap({ data, onFilter }: HeatmapProps) {
           return (
             <div 
               key={m.id} 
-              className="absolute top-0 w-[2px] h-full bg-white z-20 group-hover/container:opacity-100 opacity-70 transition-opacity"
+              className="absolute top-0 w-[2px] h-full bg-primary z-20 group-hover/container:opacity-100 opacity-70 transition-opacity"
               style={{ left: `${leftPercent}%` }}
               title={`Deadline: ${m.text}`}
             >
-              <div className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white shadow-lg"></div>
+              <div className="absolute -top-1 -left-1 w-2.5 h-2.5 bg-error rounded-full border border-primary"></div>
             </div>
           );
         })}
       </div>
       
-      <div className="flex justify-between mt-3 text-xs text-[#9ca3af] font-medium uppercase tracking-wider">
+      <div className="flex justify-between text-[10px] text-on-surface-variant font-bold uppercase tracking-widest px-1">
         <span>{new Date(firstTime).toLocaleString()}</span>
         <span>Bucket = {isPerDay ? '1 Day' : '1 Hour'}</span>
         <span>{new Date(firstTime + duration).toLocaleString()}</span>

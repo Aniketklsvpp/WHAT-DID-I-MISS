@@ -90,7 +90,8 @@ export function LocalLLMPanel({ data, userName }: { data: CatchUpData, userName:
         </div>
         <button 
           onClick={() => setEnabled(true)}
-          className="px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg text-label-lg uppercase tracking-wider hover:bg-primary/90 transition-transform shadow-[2px_2px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer whitespace-nowrap"
+          aria-label="Enable on-device local AI summary model"
+          className="px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg text-label-lg uppercase tracking-wider hover:bg-primary/90 transition-transform shadow-[2px_2px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer whitespace-nowrap focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
         >
           Enable AI
         </button>
@@ -117,7 +118,8 @@ export function LocalLLMPanel({ data, userName }: { data: CatchUpData, userName:
           {errorFallback && (
             <button 
               onClick={handleGenerate}
-              className="px-6 py-3 rounded-full bg-surface-container-lowest text-primary border-2 border-primary font-label-lg text-label-lg uppercase tracking-wider hover:bg-surface-variant transition-transform shadow-[2px_2px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer whitespace-nowrap"
+              aria-label="Retry local AI summary generation"
+              className="px-6 py-3 rounded-full bg-surface-container-lowest text-primary border-2 border-primary font-label-lg text-label-lg uppercase tracking-wider hover:bg-surface-variant transition-transform shadow-[2px_2px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer whitespace-nowrap focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
             >
               Retry
             </button>
@@ -125,7 +127,8 @@ export function LocalLLMPanel({ data, userName }: { data: CatchUpData, userName:
           <button 
             onClick={handleGenerate}
             disabled={isLoading || isGenerating}
-            className="px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg text-label-lg uppercase tracking-wider hover:bg-primary/90 transition-transform shadow-[2px_2px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            aria-label={isLoading || isGenerating ? "Generating summary" : "Generate local AI summary"}
+            className="px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg text-label-lg uppercase tracking-wider hover:bg-primary/90 transition-transform shadow-[2px_2px_0px_#000000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer disabled:opacity-50 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
             {(isLoading || isGenerating) ? 'Generating...' : 'Generate'}
           </button>

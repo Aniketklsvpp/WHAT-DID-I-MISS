@@ -1,21 +1,19 @@
 import { useState, useRef } from 'react';
-import { Search, Sparkles, Loader2 } from 'lucide-react';
 import { type CatchUpData, type ScoredMessage } from '../lib/score';
 import { retrieveMessages } from '../lib/ask';
 import { initLLMEngine, hasWebGPU } from '../lib/llm';
 import { MLCEngine } from '@mlc-ai/web-llm';
+import { MessageContent } from './MessageContent';
 
-export function AskChat({ data }: { data: CatchUpData }) {
+export function AskChat({ data, revealPii, showAiView }: { data: CatchUpData, revealPii: boolean, showAiView: boolean }) {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [answer, setAnswer] = useState('');
   const [sources, setSources] = useState<ScoredMessage[]>([]);
   const [errorFallback, setErrorFallback] = useState(false);
-  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [showSources, setShowSources] = useState(false);
   
   const engineRef = useRef<MLCEngine | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const sourcesEndRef = useRef<HTMLDivElement>(null);
 
   const examples = [
     "What did they say about the venue?",
@@ -30,7 +28,7 @@ export function AskChat({ data }: { data: CatchUpData }) {
     setAnswer('');
     setErrorFallback(false);
     setSources([]);
-    setHighlightId(null);
+    setShowSources(false);
 
     const { messages, topHits } = retrieveMessages(searchQuery, data.allScored);
     
@@ -40,9 +38,8 @@ export function AskChat({ data }: { data: CatchUpData }) {
       return;
     }
     
-    // limit context passed to LLM to prevent enormous prompts
     const topContext = messages
-      .filter(m => !m.hasHighRisk) // exclude high-risk OTP/Card items
+      .filter(m => !m.hasHighRisk) 
       .slice(-20); 
     setSources(topContext);
 
@@ -58,7 +55,6 @@ export function AskChat({ data }: { data: CatchUpData }) {
       }
       if (!engineRef.current) throw new Error("Engine failed.");
 
-      // Enforce maskedText sent to LLM
       const chatText = topContext.map(m => `[${m.timestamp.toLocaleString()}] ${m.sender}: ${m.maskedText}`).join('\n');
       const prompt = `Answer ONLY using the messages below. If the answer is not in them, say you can't find it. Keep it under 3 sentences. Mention who said it and when.\n\nMessages:\n${chatText}\n\nQuestion: ${searchQuery}`;
 
@@ -83,61 +79,50 @@ export function AskChat({ data }: { data: CatchUpData }) {
 
   const handleFallback = (bestHits: ScoredMessage[]) => {
     setErrorFallback(true);
-    setAnswer(bestHits.slice(0, 3).map(m => `• [${m.sender}]: ${m.text}`).join('\n\n'));
+    setAnswer(bestHits.slice(0, 3).map(m => `• [${m.sender}]: ${revealPii ? m.text : m.maskedText}`).join('\n\n'));
     setIsSearching(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       handleSearch(query);
     }
   };
 
-  const scrollToSource = (id: string) => {
-    setHighlightId(id);
-    const el = document.getElementById(`source-${id}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
-
   return (
-    <div className="w-full bg-[#1f2937] border border-[#374151] rounded-2xl p-6 shadow-xl mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 border-b border-[#374151] pb-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-purple-500/10 rounded-lg">
-            <Sparkles size={24} className="text-purple-400" />
-          </div>
-          <h3 className="text-xl font-bold text-white">Ask your chat</h3>
-        </div>
-      </div>
-
-      <div className="relative mb-4">
+    <div className="w-full flex flex-col items-center justify-center py-12 mb-12 border-t-4 border-primary border-dashed">
+      <h1 className="w-full text-center font-headline-lg text-headline-lg tracking-normal uppercase text-primary mb-8">
+        ASK YOUR CHAT
+      </h1>
+      
+      <div className="w-full relative flex items-center mb-6">
         <input 
-          ref={inputRef}
           type="text"
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask anything... e.g. What did Rahul say about the venue?"
-          className="w-full pl-12 pr-4 py-4 bg-[#111827] border border-[#374151] focus:border-purple-500 rounded-xl text-white placeholder-gray-500 outline-none transition-colors"
+          aria-label="Ask your chat question"
+          placeholder="Ask your chat... e.g. What did Rahul say about the venue?"
+          className="w-full bg-surface-container-lowest text-on-surface font-body-md text-body-md pl-6 pr-28 py-5 rounded-full border-[2.5px] border-primary shadow-[4px_4px_0px_#000000] focus:outline-none focus:ring-2 focus:ring-primary focus:shadow-[2px_2px_0px_#000000] focus:translate-x-[2px] focus:translate-y-[2px] transition-all placeholder:text-on-surface-variant/60"
         />
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
         <button 
           onClick={() => handleSearch(query)}
           disabled={isSearching || !query.trim()}
-          className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-lg text-sm font-bold transition-colors shadow-lg cursor-pointer flex items-center"
+          aria-label={isSearching ? "Searching chat history" : "Ask question"}
+          className="absolute right-2.5 px-6 py-3 rounded-full bg-primary text-on-primary font-label-lg text-label-lg uppercase tracking-wider hover:bg-primary/90 active:scale-95 transition-transform cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
         >
-          {isSearching ? <Loader2 size={16} className="animate-spin" /> : 'Ask'}
+          {isSearching ? '...' : 'Ask'}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap gap-2 w-full justify-center mb-8">
         {examples.map(ex => (
           <button 
             key={ex}
             onClick={() => { setQuery(ex); handleSearch(ex); }}
-            className="px-3 py-1.5 bg-[#374151] hover:bg-purple-500/20 hover:text-purple-300 hover:border-purple-500/50 text-[#9ca3af] border border-[#4b5563] rounded-full text-xs transition-all cursor-pointer"
+            aria-label={`Ask sample question: ${ex}`}
+            className="px-4 py-1.5 bg-surface-container-lowest hover:bg-secondary-container text-on-surface-variant hover:text-on-surface border-2 border-primary rounded-full font-label-sm uppercase tracking-wider shadow-[2px_2px_0px_#000000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
             {ex}
           </button>
@@ -145,36 +130,38 @@ export function AskChat({ data }: { data: CatchUpData }) {
       </div>
 
       {(answer || isSearching) && (
-        <div className="bg-[#111827] border border-purple-500/30 rounded-xl p-5 relative mt-4 animate-in fade-in">
-          <div className="absolute -top-3 left-4 px-2 bg-purple-600 text-white text-xs font-bold tracking-wider uppercase rounded shadow">
-            {errorFallback ? 'Best Matches (AI Unavailable)' : 'Answer'}
-          </div>
-          
-          <div className="text-white text-sm md:text-base leading-relaxed whitespace-pre-wrap mt-2">
-            {answer}
-            {isSearching && <span className="inline-block w-2 h-4 ml-1 bg-purple-400 animate-pulse"></span>}
+        <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500" aria-live="polite">
+          <div className="w-full bg-secondary-container text-on-surface rounded-xl border-[2.5px] border-primary shadow-[4px_4px_0px_#000000] p-6 flex flex-col justify-center relative">
+            {errorFallback && (
+              <div className="absolute -top-3 left-4 px-2 bg-error text-white text-[10px] font-bold tracking-wider uppercase border-2 border-primary">
+                AI Unavailable - Best Matches
+              </div>
+            )}
+            <p className="font-body-lg text-body-lg text-on-surface leading-snug whitespace-pre-wrap">
+              {answer || (isSearching ? "Searching..." : "")}
+            </p>
           </div>
 
           {sources.length > 0 && !isSearching && (
-            <div className="mt-8 border-t border-[#374151] pt-4">
-              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Sources</h4>
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                {sources.map(msg => (
-                  <div 
-                    key={msg.id}
-                    id={`source-${msg.id}`}
-                    onClick={() => scrollToSource(msg.id)}
-                    className={`p-3 rounded-lg border transition-all cursor-pointer ${highlightId === msg.id ? 'bg-purple-500/10 border-purple-500/50' : 'bg-[#1f2937] border-[#374151] hover:border-gray-500'}`}
-                  >
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-semibold text-xs text-[#f9fafb]">{msg.sender}</span>
-                      <span className="text-[10px] text-[#9ca3af]">{msg.timestamp.toLocaleString()}</span>
+            <div className="w-full flex flex-col items-start mt-6 px-2">
+              <button 
+                onClick={() => setShowSources(!showSources)}
+                aria-label={showSources ? "Hide message sources" : "View message sources"}
+                className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none cursor-pointer select-none"
+              >
+                {showSources ? 'Hide Sources' : 'View Sources'}
+              </button>
+              
+              {showSources && (
+                <div className="w-full mt-4 pt-4 border-t-2 border-primary border-dashed font-body-sm text-body-sm text-on-surface-variant font-mono space-y-3">
+                  {sources.map((msg) => (
+                    <div key={msg.id} className="flex flex-col mb-2">
+                      <span className="font-bold text-primary">[{msg.sender} @ {msg.timestamp.toLocaleTimeString()}]</span>
+                      <MessageContent msg={msg} revealPii={revealPii} showAiView={showAiView} />
                     </div>
-                    <p className="text-xs text-[#9ca3af]">{msg.text}</p>
-                  </div>
-                ))}
-                <div ref={sourcesEndRef} />
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
