@@ -10,14 +10,13 @@ import { PrivacyPanel } from './components/PrivacyPanel';
 import { PiiShield } from './components/PiiShield';
 import { MessageSquare, AlertTriangle } from 'lucide-react';
 import { parseWhatsApp, type Message } from './lib/parser';
-import { buildCatchUp, type CatchUpData, type ScoredMessage } from './lib/score';
+import { buildCatchUp, type ScoredMessage } from './lib/score';
 import { saveState, loadState, clearState } from './lib/storage';
 import sampleHinglish from './data/sample-hinglish.txt?raw';
 
 function App() {
   const [parsedMessages, setParsedMessages] = useState<Message[] | null>(null);
   const [currentUser, setCurrentUser] = useState<string>('');
-  const [catchUpData, setCatchUpData] = useState<CatchUpData | null>(null);
   const [filterRange, setFilterRange] = useState<{ start: Date, end: Date } | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [errorMsg, setErrorMsg] = useState('');
@@ -76,19 +75,21 @@ function App() {
     await clearState();
     setParsedMessages(null);
     setCurrentUser('');
-    setCatchUpData(null);
     setFilterRange(null);
     setRevealPii(false);
     setShowPrivacy(false);
   };
 
+  const catchUpData = useMemo(() => {
+    if (!parsedMessages || !currentUser) return null;
+    return buildCatchUp(parsedMessages, currentUser);
+  }, [parsedMessages, currentUser]);
+
   useEffect(() => {
     if (parsedMessages && currentUser) {
-      setCatchUpData(buildCatchUp(parsedMessages, currentUser));
-      setFilterRange(null);
       saveState(parsedMessages, currentUser);
     }
-  }, [currentUser, parsedMessages]);
+  }, [parsedMessages, currentUser]);
 
   const displayData = useMemo(() => {
     if (!catchUpData) return null;

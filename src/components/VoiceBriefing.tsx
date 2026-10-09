@@ -3,7 +3,7 @@ import { type CatchUpData } from '../lib/score';
 import { buildVoiceScript, isSpeechSupported } from '../lib/voice';
 
 export function VoiceBriefing({ data, userName }: { data: CatchUpData, userName: string }) {
-  const [supported, setSupported] = useState(true);
+  const [supported] = useState(() => isSpeechSupported());
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [speed, setSpeed] = useState<number>(1);
@@ -15,10 +15,7 @@ export function VoiceBriefing({ data, userName }: { data: CatchUpData, userName:
   const utterance = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
-    if (!isSpeechSupported()) {
-      setSupported(false);
-      return;
-    }
+    if (!supported) return;
     
     synth.current = window.speechSynthesis;
     
@@ -26,9 +23,9 @@ export function VoiceBriefing({ data, userName }: { data: CatchUpData, userName:
       if (synth.current) {
         const availableVoices = synth.current.getVoices().filter(v => v.localService);
         setVoices(availableVoices);
-        if (availableVoices.length > 0 && !selectedVoice) {
+        if (availableVoices.length > 0) {
           const defaultVoice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
-          setSelectedVoice(defaultVoice.name);
+          setSelectedVoice(prev => prev || defaultVoice.name);
         }
       }
     };
@@ -43,7 +40,7 @@ export function VoiceBriefing({ data, userName }: { data: CatchUpData, userName:
         synth.current.cancel();
       }
     };
-  }, []);
+  }, [supported]);
 
   if (!supported) return null;
 

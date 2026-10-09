@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Shield, ShieldAlert, Eye } from 'lucide-react';
 import { type CatchUpData } from '../lib/score';
 
@@ -11,10 +11,7 @@ interface PiiShieldProps {
 }
 
 export function PiiShield({ data, revealPii, setRevealPii, showAiView, setShowAiView }: PiiShieldProps) {
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [total, setTotal] = useState(0);
-
-  useEffect(() => {
+  const { counts, total } = useMemo(() => {
     const newCounts: Record<string, number> = {};
     let t = 0;
     data.allScored.forEach(m => {
@@ -23,8 +20,7 @@ export function PiiShield({ data, revealPii, setRevealPii, showAiView, setShowAi
         t++;
       });
     });
-    setCounts(newCounts);
-    setTotal(t);
+    return { counts: newCounts, total: t };
   }, [data]);
 
   useEffect(() => {

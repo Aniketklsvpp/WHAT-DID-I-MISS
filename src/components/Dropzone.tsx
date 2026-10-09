@@ -17,6 +17,15 @@ export function Dropzone({ onFileLoaded }: DropzoneProps) {
     }
   }, []);
 
+  const readFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      onFileLoaded(text);
+    };
+    reader.readAsText(file);
+  }, [onFileLoaded]);
+
   const handleDrop = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -30,21 +39,12 @@ export function Dropzone({ onFileLoaded }: DropzoneProps) {
         alert("Please upload a .txt file");
       }
     }
-  }, []);
+  }, [readFile]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       readFile(e.target.files[0]);
     }
-  };
-
-  const readFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      onFileLoaded(text);
-    };
-    reader.readAsText(file);
   };
 
   return (
