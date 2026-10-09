@@ -1,0 +1,10 @@
+12/03/2026, 10:00 am - Alice: Hey team! Welcome to the CatchUp app project chat.
+12/03/2026, 10:05 am - Bob: Hey Alice! Super excited for this. What's the main goal?
+12/03/2026, 10:10 am - Alice: We need to build a 100% local, privacy-first WhatsApp chat catch-up dashboard.
+12/03/2026, 10:15 am - Charlie: Great idea! @Dave when is the deadline for the initial prototype?
+12/03/2026, 10:18 am - Dave: The deadline for phase 1 is tomorrow 5 PM! Urgent!
+12/03/2026, 10:22 am - Alice: Action item: Charlie, please update the README.md and documentation.
+12/03/2026, 10:30 am - Bob: Decision: We will use React + Vite + Tailwind with WebGPU for local LLM summarization.
+12/03/2026, 10:35 am - Charlie: Hinglish check: Kal tak sab complete karna hai, bohot kaam baaki hai!
+12/03/2026, 10:40 am - Dave: PII test item: Please verify OTP 987654 or call me at 9876543210.
+12/03/2026, 10:45 am - Alice: Awesome. @Bob please test the PII shield before submitting.
